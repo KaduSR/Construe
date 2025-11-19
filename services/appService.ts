@@ -1,7 +1,6 @@
-
 import { supabase } from './supabaseClient';
 import { CompanyService } from './companyService';
-import { User, Company, Budget, Service, Material, PlanType, RegisterCompanyData, RegisterUserData } from '../types';
+import { User, Company, Budget, Service, Material, PlanType, RegisterCompanyData, RegisterUserData, CreateBudgetDTO } from '../types';
 
 const getErrorMessage = (error: any): string => {
   if (!error) return 'An unexpected error occurred';
@@ -44,7 +43,7 @@ const seedDefaultServices = async (companyId: string) => {
 export const AppService = {
   getErrorMessage,
 
-  loginWithGoogle: async (): Promise<void> => {
+  loginWithGoogle: async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -58,7 +57,7 @@ export const AppService = {
     if (error) throw new Error(getErrorMessage(error));
   },
 
-  login: async (email: string, password: string): Promise<void> => {
+  login: async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       let msg = getErrorMessage(error);
@@ -73,7 +72,7 @@ export const AppService = {
     await supabase.auth.signOut();
   },
 
-  getCurrentUser: async (): Promise<{ user: User | null, company: Company | null }> => {
+  getCurrentUser: async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session?.user) return { user: null, company: null };
 
@@ -121,7 +120,7 @@ export const AppService = {
   registerCompany: async (
     companyData: RegisterCompanyData,
     userData: RegisterUserData
-  ): Promise<void> => {
+  ) => {
     
     // 1. Upload Logo (se houver)
     let logoPath = null;
@@ -173,7 +172,7 @@ export const AppService = {
     }
   },
 
-  getServices: async (companyId: string): Promise<Service[]> => {
+  getServices: async (companyId: string) => {
     const { data, error } = await supabase
       .from('services')
       .select('*')
@@ -191,7 +190,7 @@ export const AppService = {
     }));
   },
 
-  getBudgets: async (companyId: string): Promise<Budget[]> => {
+  getBudgets: async (companyId: string) => {
     const { data, error } = await supabase
       .from('budgets')
       .select(`
@@ -228,12 +227,7 @@ export const AppService = {
     }));
   },
 
-  createBudget: async (budget: { 
-    companyId: string; 
-    clientName: string; 
-    total: number; 
-    items: { serviceId: string; quantity: number; subtotal: number }[] 
-  }): Promise<void> => {
+  createBudget: async (budget: CreateBudgetDTO) => {
     
     const { data: newBudget, error: budgetError } = await supabase
       .from('budgets')
@@ -263,7 +257,7 @@ export const AppService = {
     }
   },
 
-  getMaterials: async (companyId: string): Promise<Material[]> => {
+  getMaterials: async (companyId: string) => {
      const { data, error } = await supabase.from('materials').select('*').eq('company_id', companyId);
      if(error) throw new Error(getErrorMessage(error));
      return (data || []).map((m: any) => ({
@@ -276,7 +270,7 @@ export const AppService = {
      }));
   },
 
-  upgradePlan: async (companyId: string): Promise<void> => {
+  upgradePlan: async (companyId: string) => {
     return new Promise(resolve => setTimeout(resolve, 1000));
   },
 };

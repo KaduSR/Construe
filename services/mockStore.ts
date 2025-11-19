@@ -1,4 +1,3 @@
-
 import { User, Company, Budget, PlanType, UserRole, Material } from '../types';
 
 // Simulating a backend database in memory
@@ -20,7 +19,7 @@ const mockMaterials: Material[] = [
 ];
 
 export const MockAuth = {
-  login: async (email: string): Promise<User> => {
+  login: async (email: string) => {
     await new Promise(resolve => setTimeout(resolve, 800));
     const user = users.find(u => u.email === email);
     if (!user) throw new Error('Usuário não encontrado. (Dica: Crie uma conta de empresa primeiro)');
@@ -31,7 +30,7 @@ export const MockAuth = {
   registerCompany: async (
     companyData: Omit<Company, 'id' | 'plan'>, 
     userData: { name: string; email: string }
-  ): Promise<{ user: User; company: Company }> => {
+  ) => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     const userId = `user_${Date.now()}`;
@@ -68,12 +67,12 @@ export const MockAuth = {
 };
 
 export const MockData = {
-  getBudgets: async (companyId: string): Promise<Budget[]> => {
+  getBudgets: async (companyId: string) => {
     await new Promise(resolve => setTimeout(resolve, 500));
     return budgets.filter(b => b.companyId === companyId);
   },
 
-  createBudget: async (budget: Omit<Budget, 'id' | 'number' | 'createdAt'>): Promise<Budget> => {
+  createBudget: async (budget: Omit<Budget, 'id' | 'number' | 'createdAt'>) => {
     await new Promise(resolve => setTimeout(resolve, 800));
     
     const companyBudgets = budgets.filter(b => b.companyId === budget.companyId);
@@ -95,13 +94,13 @@ export const MockData = {
     return newBudget;
   },
 
-  upgradePlan: async (companyId: string): Promise<void> => {
+  upgradePlan: async (companyId: string) => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     const company = companies.find(c => c.id === companyId);
     if (company) company.plan = PlanType.PREMIUM;
   },
 
-  getMaterials: async (): Promise<Material[]> => {
+  getMaterials: async () => {
     await new Promise(resolve => setTimeout(resolve, 300));
     return mockMaterials;
   }

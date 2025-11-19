@@ -100,4 +100,15 @@ export interface RegisterUserData {
   password: string;
 }
 
+export interface CreateBudgetDTO {
+  companyId: string;
+  clientName: string;
+  total: number;
+  items: {
+    serviceId: string;
+    quantity: number;
+    subtotal: number;
+  }[];
+}
+
 export interface CreateCompanyDTO extends CreateCompanyPayload {}
