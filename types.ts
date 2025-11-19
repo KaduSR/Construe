@@ -9,17 +9,15 @@ export enum PlanType {
   PREMIUM = 'PREMIUM'
 }
 
-// Matching schema: companies(id, name, cnpj, company_type, email)
 export interface Company {
   id: string;
   name: string;
   cnpj: string;
-  type: string; // mapped to company_type
+  type: string; 
   email: string;
-  // Helpers for UI that might not be in DB strictly or mapped differently
   phone?: string; 
   address?: string;
-  plan: PlanType; // Assuming logic persists in code even if not in strict schema, or we default to FREE
+  plan: PlanType; 
 }
 
 export interface User {
@@ -30,7 +28,6 @@ export interface User {
   role?: UserRole;
 }
 
-// Matching schema: materials(id, company_id, name, unit, price, consumption)
 export interface Material {
   id: string;
   companyId: string;
@@ -40,43 +37,67 @@ export interface Material {
   consumption: number;
 }
 
-// Matching schema: services(id, company_id, name, description, base_price, formula)
 export interface Service {
   id: string;
   companyId: string;
   name: string;
   description: string;
-  basePrice: number; // mapped from base_price
+  basePrice: number;
   formula: string;
 }
 
-// Matching schema: budget_items(id, budget_id, service_id, quantity, subtotal)
 export interface BudgetItem {
-  id?: string; // Optional for new items
+  id?: string;
   budgetId?: string;
   serviceId: string;
   quantity: number;
   subtotal: number;
-  
-  // UI Helpers (Joined data)
   serviceName?: string;
   unitPrice?: number;
-  description?: string; // For PDF
-  unit?: string;        // For PDF
+  description?: string; 
+  unit?: string;       
 }
 
-// Matching schema: budgets(id, company_id, client_name, total, created_at)
 export interface Budget {
   id: string;
   companyId: string;
-  clientName: string; // maps to client_name
-  total: number;      // maps to total
-  createdAt: string;  // maps to created_at
-  
-  items: BudgetItem[]; // Joined items
-
-  // UI Helpers (Computed or Mocked)
+  clientName: string; 
+  total: number;      
+  createdAt: string;  
+  items: BudgetItem[]; 
   number: number;
   category: string;
   clientAddress?: string;
 }
+
+export interface CreateCompanyPayload {
+  name: string;
+  cnpj: string;
+  type: string;
+  email: string;
+  phone: string;
+  address: string;
+  logo_path?: string | null;
+}
+
+export interface RegisterCompanyData {
+  name: string;
+  cnpj: string;
+  type: string;
+  email: string;
+  phone: string;
+  street: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  logoFile?: File | null;
+}
+
+export interface RegisterUserData {
+  name: string;
+  email: string;
+  password: string;
+}
+
+export interface CreateCompanyDTO extends CreateCompanyPayload {}

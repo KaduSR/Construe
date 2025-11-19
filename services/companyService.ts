@@ -1,12 +1,13 @@
+
 import { supabase } from './supabaseClient';
+import { Company, CreateCompanyPayload } from '../types';
 
 export const CompanyService = {
   /**
    * Cria uma empresa e vincula o usuário como ADMIN.
-   * @param {string} userId
-   * @param {Object} data
+   * Usa transação implícita (insert company -> insert admin).
    */
-  createCompany: async (userId, data) => {
+  createCompany: async (userId: string, data: CreateCompanyPayload) => {
     // 1. Inserir Empresa
     const { data: company, error: companyError } = await supabase
       .from('companies')
@@ -34,6 +35,7 @@ export const CompanyService = {
       });
 
     if (adminError) {
+      // Nota: Em um cenário real, idealmente deletaríamos a empresa criada (rollback manual)
       throw new Error(`Erro ao vincular admin: ${adminError.message}`);
     }
 
@@ -43,13 +45,13 @@ export const CompanyService = {
   /**
    * Atualiza dados da empresa.
    */
-  updateCompany: async (companyId, data) => {
+  updateCompany: async (companyId: string, data: Partial<Company>) => {
     const { error } = await supabase
       .from('companies')
       .update({
         name: data.name,
         cnpj: data.cnpj,
-        company_type: data.type,
+        company_type: data.type, // Mapeando para o nome da coluna no banco
         email: data.email,
         phone: data.phone,
         address: data.address

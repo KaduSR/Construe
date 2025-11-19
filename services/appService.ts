@@ -1,35 +1,17 @@
 
 import { supabase } from './supabaseClient';
-import { User, Company, Budget, Material, Service } from '../types';
+import { CompanyService } from './companyService';
+import { User, Company, Budget, Service, Material, PlanType, RegisterCompanyData, RegisterUserData } from '../types';
 
 const getErrorMessage = (error: any): string => {
   if (!error) return 'An unexpected error occurred';
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
-  
-  // Safe object handling
-  if (typeof error === 'object') {
-    // Supabase often returns { message: "...", code: "..." }
-    if (error.message) return String(error.message);
-    if (error.error_description) return String(error.error_description);
-    if (error.details) return String(error.details);
-    if (error.hint) return String(error.hint);
-    if (error.msg) return String(error.msg);
-    
-    // Last resort: stringify for debug
-    try { 
-      return JSON.stringify(error); 
-    } catch (e) { 
-      return 'Unknown error object'; 
-    }
-  }
-  
-  return String(error);
+  return JSON.stringify(error);
 };
 
 const uploadCompanyLogo = async (file: File | null) => {
   if (!file) return null;
-  
   const fileExt = file.name.split('.').pop();
   const filePath = `company-logos/${crypto.randomUUID()}.${fileExt}`;
   
@@ -38,7 +20,6 @@ const uploadCompanyLogo = async (file: File | null) => {
     .upload(filePath, file);
 
   if (error) throw new Error(error.message);
-
   return filePath;
 };
 
@@ -60,156 +41,29 @@ const seedDefaultServices = async (companyId: string) => {
   await supabase.from('services').insert(servicesPayload);
 };
 
-const createCompanyRecord = async (userId: string, params: any) => {
-  const { data, error: rpcError } = await supabase.rpc('register_company', {
-    ...params,
-    p_user_id: userId
-  });
-
-  if (rpcError) {
-    console.error('RPC register_company error:', JSON.stringify(rpcError, null, 2));
-    throw new Error("Erro ao criar empresa: " + (rpcError.message || getErrorMessage(rpcError)));
-  }
-
-  const companyId = data;
-
-  // Link Company to User in Metadata
-  const { error: updateError } = await supabase.auth.updateUser({
-    data: { company_id: companyId }
-  });
-  if (updateError) console.warn("Could not update user metadata immediately:", updateError);
-
-  // Seed Default Services
-  await seedDefaultServices(companyId);
-  
-  return companyId;
-};
-
 export const AppService = {
-  // --- Auth ---
-  getCurrentUser: async (): Promise<{ user: User | null, company: Company | null }> => {
-    let { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) throw new Error(getErrorMessage(sessionError));
-    
-    // Check for pending registration recovery (Handling Email Confirmation flow)
-    if (session?.user) {
-      const pendingReg = localStorage.getItem('construe_pending_reg');
-      if (pendingReg) {
-        try {
-          console.log("Found pending company registration. Finalizing...");
-          const params = JSON.parse(pendingReg);
-          await createCompanyRecord(session.user.id, params);
-          localStorage.removeItem('construe_pending_reg');
-          
-          // Refresh session to get updated metadata (company_id)
-          const { data: refreshData } = await supabase.auth.refreshSession();
-          if (refreshData.session) {
-            session = refreshData.session;
-          }
-        } catch (e) {
-          console.error("Failed to finalize pending registration:", e);
-          // If failure is due to "duplicate key" (company already created), clear pending reg to avoid loop
-          const errMsg = getErrorMessage(e);
-          if (errMsg.includes("duplicate") || errMsg.includes("already exists")) {
-             localStorage.removeItem('construe_pending_reg');
-          }
-        }
-      }
-    }
+  getErrorMessage,
 
-    if (!session?.user) return { user: null, company: null };
-
-    // LINKING STRATEGY FIX:
-    // Since 'profiles' table might not have 'company_id' column in some schemas,
-    // we rely on user_metadata to store the link, or fetch it via relation.
-    let metaCompanyId = session.user.user_metadata?.company_id;
-
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, name, email, role') // Explicitly select columns to avoid "column not found" error
-      .eq('id', session.user.id)
-      .maybeSingle();
-
-    if (profileError) {
-       console.warn("Error fetching profile:", profileError);
-    }
-    
-    // If metadata is missing but we just created company, we might need to re-fetch user or check localStorage?
-    // The code above (createCompanyRecord) updates metadata, but session might be stale.
-    if (!metaCompanyId) {
-       const { data: refreshedUser } = await supabase.auth.getUser();
-       metaCompanyId = refreshedUser.user?.user_metadata?.company_id;
-    }
-
-    // Use metadata ID.
-    const companyId = metaCompanyId;
-
-    if (!companyId) {
-      // If we have a profile but no company link, return user without company
-      if (profile) {
-        return {
-          user: {
-            id: profile.id,
-            email: profile.email,
-            name: profile.name,
-            role: profile.role
-          },
-          company: null
-        };
-      }
-      return { user: null, company: null };
-    }
-
-    // Explicitly select columns to ensure we get address parts if they exist
-    const { data: companyData, error: companyError } = await supabase
-      .from('companies')
-      .select('*') // Select all to get new address columns
-      .eq('id', companyId)
-      .single();
-
-    if (companyError) return { user: null, company: null };
-
-    // Construct full address if components exist
-    let fullAddress = companyData.address || '';
-    if (companyData.city && companyData.state) {
-       const parts = [
-         companyData.address,
-         companyData.district,
-         `${companyData.city} - ${companyData.state}`,
-         companyData.zip_code ? `CEP: ${companyData.zip_code}` : ''
-       ].filter(Boolean);
-       fullAddress = parts.join(', ');
-    }
-
-    const user: User = {
-      id: session.user.id,
-      email: profile?.email || session.user.email!,
-      name: profile?.name || session.user.user_metadata?.name || 'Usuário',
-      companyId: companyId,
-      role: profile?.role || 'ADMIN'
-    };
-
-    const company: Company = companyData ? {
-      id: companyData.id,
-      name: companyData.name,
-      cnpj: companyData.cnpj,
-      type: companyData.company_type, // Mapped from DB
-      email: companyData.email,
-      phone: companyData.phone,
-      address: fullAddress,
-      plan: 'FREE' // Default since schema removed plan column
-    } : null as any;
-
-    return { user, company };
+  loginWithGoogle: async (): Promise<void> => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+    if (error) throw new Error(getErrorMessage(error));
   },
 
   login: async (email: string, password: string): Promise<void> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       let msg = getErrorMessage(error);
-      // Improve generic Supabase error for unconfirmed emails or wrong password
       if (msg.includes("Invalid login credentials")) {
-        msg = "Credenciais inválidas. Verifique seu e-mail e senha.\n\nSe você criou a conta recentemente, verifique se confirmou o e-mail clicando no link enviado para sua caixa de entrada.";
+        msg = "Credenciais inválidas ou e-mail não confirmado.";
       }
       throw new Error(msg);
     }
@@ -219,97 +73,105 @@ export const AppService = {
     await supabase.auth.signOut();
   },
 
-  registerCompany: async (
-    companyData: { 
-      name: string; 
-      cnpj: string; 
-      type: string; 
-      email: string; 
-      phone: string; 
-      street: string;
-      neighborhood: string;
-      city: string;
-      state: string;
-      zipCode: string;
-      logoFile?: File | null 
-    }, 
-    userData: { name: string; email: string; password: string }
-  ): Promise<void> => {
-    
-    // 1. Upload Logo (if exists)
-    let logoPath = null;
-    if (companyData.logoFile) {
-      try {
-        logoPath = await uploadCompanyLogo(companyData.logoFile);
-      } catch (e) {
-        console.warn("Logo upload failed, continuing without logo:", e);
+  getCurrentUser: async (): Promise<{ user: User | null, company: Company | null }> => {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session?.user) return { user: null, company: null };
+
+    // Busca vínculo na tabela company_admins
+    const { data: adminLink } = await supabase
+      .from('company_admins')
+      .select('company_id, role')
+      .eq('user_id', session.user.id)
+      .maybeSingle();
+
+    let company: Company | null = null;
+
+    if (adminLink?.company_id) {
+      const { data: companyData } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', adminLink.company_id)
+        .single();
+      
+      if (companyData) {
+        company = {
+          id: companyData.id,
+          name: companyData.name,
+          cnpj: companyData.cnpj,
+          type: companyData.company_type,
+          email: companyData.email,
+          phone: companyData.phone,
+          address: companyData.address,
+          plan: PlanType.FREE
+        };
       }
     }
 
-    // Prepare RPC Params (Address Concatenation)
+    const user: User = {
+      id: session.user.id,
+      email: session.user.email!,
+      name: session.user.user_metadata?.name || 'Usuário',
+      companyId: company?.id,
+      role: (adminLink?.role as any) || 'ADMIN'
+    };
+
+    return { user, company };
+  },
+
+  registerCompany: async (
+    companyData: RegisterCompanyData,
+    userData: RegisterUserData
+  ): Promise<void> => {
+    
+    // 1. Upload Logo (se houver)
+    let logoPath = null;
+    try {
+      logoPath = await uploadCompanyLogo(companyData.logoFile || null);
+    } catch (e) {
+      console.warn("Logo upload falhou, continuando sem logo:", e);
+    }
+
+    // 2. Criar Usuário (Auth)
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: userData.email,
+      password: userData.password,
+      options: { data: { name: userData.name } }
+    });
+
+    if (authError) throw new Error(getErrorMessage(authError));
+    
+    const user = authData.user;
+    if (!user) throw new Error("Erro ao criar usuário: Sem retorno de ID.");
+
+    // Verifica se precisa confirmar e-mail (Supabase config default)
+    if (!authData.session) {
+      throw new Error("Conta criada! Verifique seu e-mail para confirmar antes de continuar.");
+    }
+
+    // 3. Preparar Endereço
     const fullAddress = [
       companyData.street,
       companyData.neighborhood,
-      (companyData.city && companyData.state) ? `${companyData.city} - ${companyData.state}` : (companyData.city || companyData.state),
+      companyData.city && companyData.state ? `${companyData.city} - ${companyData.state}` : '',
       companyData.zipCode ? `CEP: ${companyData.zipCode}` : ''
-    ].filter(part => part && part.trim() !== '').join(', ');
+    ].filter(Boolean).join(', ');
 
-    const rpcParams = {
-      p_name: companyData.name,
-      p_cnpj: companyData.cnpj,
-      p_company_type: companyData.type,
-      p_email: companyData.email,
-      p_phone: companyData.phone || '',
-      p_address: fullAddress,
-      p_logo_path: logoPath
-    };
-
-    // 2. Sign Up
-    const { data: signData, error: signError } = await supabase.auth.signUp({
-      email: userData.email,
-      password: userData.password,
-      options: {
-        data: {
-          name: userData.name
-        }
-      }
+    // 4. Criar Empresa e Vincular (Usando o novo Service)
+    const newCompany = await CompanyService.createCompany(user.id, {
+      name: companyData.name,
+      cnpj: companyData.cnpj,
+      type: companyData.type,
+      email: companyData.email,
+      phone: companyData.phone,
+      address: fullAddress,
+      logo_path: logoPath
     });
 
-    if (signError) throw new Error(getErrorMessage(signError));
-    
-    let userId = signData.user?.id;
-
-    // RLS FIX & EMAIL CONFIRMATION HANDLING
-    // If no session, try to login. If that fails, save pending state and tell user to confirm email.
-    if (!signData.session) {
-      const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-         email: userData.email,
-         password: userData.password
-      });
-
-      if (loginError || !loginData.session) {
-        // Save pending registration to LocalStorage
-        localStorage.setItem('construe_pending_reg', JSON.stringify(rpcParams));
-
-        throw new Error("Conta criada com sucesso! Porém, é necessário confirmar seu e-mail antes de finalizar o cadastro da empresa.\n\nVerifique sua caixa de entrada (e spam) e clique no link de confirmação.");
-      }
-      
-      userId = loginData.user.id;
+    // 5. Seed Data
+    if (newCompany && newCompany.id) {
+        await seedDefaultServices(newCompany.id);
     }
-    
-    if (!userId) {
-      // Fallback check
-      const { data: userCheck } = await supabase.auth.getUser();
-      userId = userCheck.user?.id;
-    }
-    
-    if (!userId) throw new Error("Não foi possível identificar o usuário.");
-
-    // 3. Create Company Record (RPC)
-    await createCompanyRecord(userId, rpcParams);
   },
-
-  // --- Data Operations ---
 
   getServices: async (companyId: string): Promise<Service[]> => {
     const { data, error } = await supabase
@@ -330,7 +192,6 @@ export const AppService = {
   },
 
   getBudgets: async (companyId: string): Promise<Budget[]> => {
-    // Join budget_items -> services to get service names
     const { data, error } = await supabase
       .from('budgets')
       .select(`
@@ -351,7 +212,6 @@ export const AppService = {
       clientName: b.client_name,
       total: Number(b.total),
       createdAt: b.created_at,
-      // Computed/Default fields for UI
       number: index + 1, 
       category: 'Geral',
       clientAddress: '', 
@@ -362,8 +222,8 @@ export const AppService = {
         subtotal: Number(i.subtotal),
         serviceName: i.services?.name || 'Serviço Removido',
         unitPrice: Number(i.services?.base_price || 0),
-        description: i.services?.name || 'Serviço', // UI Helper
-        unit: 'un' // UI Helper
+        description: i.services?.name || 'Serviço',
+        unit: 'un'
       }))
     }));
   },
@@ -375,7 +235,6 @@ export const AppService = {
     items: { serviceId: string; quantity: number; subtotal: number }[] 
   }): Promise<void> => {
     
-    // 1. Insert Budget Header
     const { data: newBudget, error: budgetError } = await supabase
       .from('budgets')
       .insert({
@@ -388,7 +247,6 @@ export const AppService = {
 
     if (budgetError) throw new Error(getErrorMessage(budgetError));
 
-    // 2. Insert Items
     if (budget.items.length > 0) {
       const itemsPayload = budget.items.map(item => ({
         budget_id: newBudget.id,
@@ -419,9 +277,6 @@ export const AppService = {
   },
 
   upgradePlan: async (companyId: string): Promise<void> => {
-    // Mock implementation since plan is not in DB schema currently
     return new Promise(resolve => setTimeout(resolve, 1000));
   },
-
-  getErrorMessage
 };
