@@ -1,1 +1,1 @@
-// DELETED - Replaced by companyService.ts
+// DELETED - This file should be ignored in favor of companyService.ts

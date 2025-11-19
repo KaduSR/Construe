@@ -1,15 +1,15 @@
 import { supabase } from './supabaseClient';
 import { CompanyService } from './companyService';
-import { User, Company, Budget, Service, Material, PlanType, RegisterCompanyData, RegisterUserData, CreateBudgetDTO } from '../types';
+import { PlanType } from '../types';
 
-const getErrorMessage = (error: any): string => {
+const getErrorMessage = (error) => {
   if (!error) return 'An unexpected error occurred';
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
   return JSON.stringify(error);
 };
 
-const uploadCompanyLogo = async (file: File | null) => {
+const uploadCompanyLogo = async (file) => {
   if (!file) return null;
   const fileExt = file.name.split('.').pop();
   const filePath = `company-logos/${crypto.randomUUID()}.${fileExt}`;
@@ -22,7 +22,7 @@ const uploadCompanyLogo = async (file: File | null) => {
   return filePath;
 };
 
-const seedDefaultServices = async (companyId: string) => {
+const seedDefaultServices = async (companyId) => {
   const defaultServices = [
     { name: 'Instalação Drywall', description: 'Parede ST com isolamento', base_price: 85.00, formula: 'area * 85' },
     { name: 'Pintura Acrílica', description: '2 demãos com massa', base_price: 45.00, formula: 'area * 45' },
@@ -57,7 +57,7 @@ export const AppService = {
     if (error) throw new Error(getErrorMessage(error));
   },
 
-  login: async (email: string, password: string) => {
+  login: async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       let msg = getErrorMessage(error);
@@ -76,14 +76,13 @@ export const AppService = {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session?.user) return { user: null, company: null };
 
-    // Busca vínculo na tabela company_admins
     const { data: adminLink } = await supabase
       .from('company_admins')
       .select('company_id, role')
       .eq('user_id', session.user.id)
       .maybeSingle();
 
-    let company: Company | null = null;
+    let company = null;
 
     if (adminLink?.company_id) {
       const { data: companyData } = await supabase
@@ -106,7 +105,7 @@ export const AppService = {
       }
     }
 
-    const user: User = {
+    const user = {
       id: session.user.id,
       email: session.user.email!,
       name: session.user.user_metadata?.name || 'Usuário',
@@ -117,12 +116,8 @@ export const AppService = {
     return { user, company };
   },
 
-  registerCompany: async (
-    companyData: RegisterCompanyData,
-    userData: RegisterUserData
-  ) => {
+  registerCompany: async (companyData, userData) => {
     
-    // 1. Upload Logo (se houver)
     let logoPath = null;
     try {
       logoPath = await uploadCompanyLogo(companyData.logoFile || null);
@@ -130,7 +125,6 @@ export const AppService = {
       console.warn("Logo upload falhou, continuando sem logo:", e);
     }
 
-    // 2. Criar Usuário (Auth)
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: userData.email,
       password: userData.password,
@@ -142,12 +136,10 @@ export const AppService = {
     const user = authData.user;
     if (!user) throw new Error("Erro ao criar usuário: Sem retorno de ID.");
 
-    // Verifica se precisa confirmar e-mail (Supabase config default)
     if (!authData.session) {
       throw new Error("Conta criada! Verifique seu e-mail para confirmar antes de continuar.");
     }
 
-    // 3. Preparar Endereço
     const fullAddress = [
       companyData.street,
       companyData.neighborhood,
@@ -155,7 +147,6 @@ export const AppService = {
       companyData.zipCode ? `CEP: ${companyData.zipCode}` : ''
     ].filter(Boolean).join(', ');
 
-    // 4. Criar Empresa e Vincular (Usando o novo Service)
     const newCompany = await CompanyService.createCompany(user.id, {
       name: companyData.name,
       cnpj: companyData.cnpj,
@@ -166,13 +157,12 @@ export const AppService = {
       logo_path: logoPath
     });
 
-    // 5. Seed Data
     if (newCompany && newCompany.id) {
         await seedDefaultServices(newCompany.id);
     }
   },
 
-  getServices: async (companyId: string) => {
+  getServices: async (companyId) => {
     const { data, error } = await supabase
       .from('services')
       .select('*')
@@ -180,7 +170,7 @@ export const AppService = {
 
     if (error) throw new Error(getErrorMessage(error));
 
-    return (data || []).map((s: any) => ({
+    return (data || []).map((s) => ({
       id: s.id,
       companyId: s.company_id,
       name: s.name,
@@ -190,7 +180,7 @@ export const AppService = {
     }));
   },
 
-  getBudgets: async (companyId: string) => {
+  getBudgets: async (companyId) => {
     const { data, error } = await supabase
       .from('budgets')
       .select(`
@@ -205,7 +195,7 @@ export const AppService = {
 
     if (error) throw new Error(getErrorMessage(error));
 
-    return (data || []).map((b: any, index: number) => ({
+    return (data || []).map((b, index) => ({
       id: b.id,
       companyId: b.company_id,
       clientName: b.client_name,
@@ -214,7 +204,7 @@ export const AppService = {
       number: index + 1, 
       category: 'Geral',
       clientAddress: '', 
-      items: (b.budget_items || []).map((i: any) => ({
+      items: (b.budget_items || []).map((i) => ({
         id: i.id,
         serviceId: i.service_id,
         quantity: Number(i.quantity),
@@ -227,8 +217,7 @@ export const AppService = {
     }));
   },
 
-  createBudget: async (budget: CreateBudgetDTO) => {
-    
+  createBudget: async (budget) => {
     const { data: newBudget, error: budgetError } = await supabase
       .from('budgets')
       .insert({
@@ -242,7 +231,7 @@ export const AppService = {
     if (budgetError) throw new Error(getErrorMessage(budgetError));
 
     if (budget.items.length > 0) {
-      const itemsPayload = budget.items.map(item => ({
+      const itemsPayload = budget.items.map((item) => ({
         budget_id: newBudget.id,
         service_id: item.serviceId,
         quantity: item.quantity,
@@ -257,10 +246,10 @@ export const AppService = {
     }
   },
 
-  getMaterials: async (companyId: string) => {
+  getMaterials: async (companyId) => {
      const { data, error } = await supabase.from('materials').select('*').eq('company_id', companyId);
      if(error) throw new Error(getErrorMessage(error));
-     return (data || []).map((m: any) => ({
+     return (data || []).map((m) => ({
        id: m.id,
        companyId: m.company_id,
        name: m.name,
@@ -270,7 +259,7 @@ export const AppService = {
      }));
   },
 
-  upgradePlan: async (companyId: string) => {
+  upgradePlan: async (companyId) => {
     return new Promise(resolve => setTimeout(resolve, 1000));
   },
 };

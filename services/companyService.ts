@@ -1,8 +1,7 @@
 import { supabase } from './supabaseClient';
-import { Company, CreateCompanyPayload } from '../types';
 
 export const CompanyService = {
-  createCompany: async (userId: string, data: CreateCompanyPayload) => {
+  createCompany: async (userId, data) => {
     const { data: company, error: companyError } = await supabase
       .from('companies')
       .insert({
@@ -32,7 +31,7 @@ export const CompanyService = {
     return company;
   },
 
-  updateCompany: async (companyId: string, data: Partial<Company>) => {
+  updateCompany: async (companyId, data) => {
     const { error } = await supabase
       .from('companies')
       .update({
