@@ -9,18 +9,18 @@ export enum PlanType {
   PREMIUM = 'PREMIUM'
 }
 
-export type CompanyNiche = 'Geral' | 'Gesso e Drywall' | 'Alvenaria' | 'Pintura' | 'Elétrica';
+export type CompanyNiche = 'Geral' | 'Gesso e Drywall' | 'Alvenaria' | 'Pintura' | 'Elétrica' | 'Hidráulica';
 
 export interface Company {
   id: string;
   name: string;
   cnpj: string;
   type: string; 
+  niche: CompanyNiche;
   email: string;
   phone?: string; 
   address?: string;
   plan: PlanType; 
-  niche: CompanyNiche;
 }
 
 export interface User {

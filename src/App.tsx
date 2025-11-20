@@ -116,7 +116,7 @@ const AuthScreen = ({ onLogin }: { onLogin: (u: User, c: Company) => void }) => 
           { 
             name: companyName, 
             cnpj, 
-            type,
+            type, 
             niche,
             email: email, 
             phone: phone, 
@@ -234,6 +234,7 @@ const AuthScreen = ({ onLogin }: { onLogin: (u: User, c: Company) => void }) => 
                         <option value="Alvenaria">2. Alvenaria</option>
                         <option value="Pintura">3. Pintura</option>
                         <option value="Elétrica">4. Elétrica</option>
+                        <option value="Hidráulica">5. Hidráulica</option>
                     </select>
                  </div>
                  

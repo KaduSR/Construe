@@ -8,14 +8,14 @@ let currentUser: User | null = null;
 
 // Mock Materials Database
 const mockMaterials: Material[] = [
-  { id: 'm1', companyId: 'mock_co', name: 'Placa Drywall ST 1.20x2.40', unit: 'un', price: 32.90, consumption: 0.35 },
-  { id: 'm2', companyId: 'mock_co', name: 'Massa Corrida PVA (Lata 18L)', unit: 'lata', price: 65.00, consumption: 0.08 },
-  { id: 'm3', companyId: 'mock_co', name: 'Tinta Acrílica Premium', unit: 'L', price: 45.00, consumption: 0.1 },
-  { id: 'm4', companyId: 'mock_co', name: 'Cimento CP-II 50kg', unit: 'sc', price: 38.00, consumption: 0.2 },
-  { id: 'm5', companyId: 'mock_co', name: 'Tijolo Baiano 6 furos', unit: 'mil', price: 850.00, consumption: 0.025 },
-  { id: 'm6', companyId: 'mock_co', name: 'Porcelanato 60x60', unit: 'm²', price: 89.90, consumption: 1.1 },
-  { id: 'm7', companyId: 'mock_co', name: 'Fio Flexível 2.5mm', unit: 'm', price: 2.50, consumption: 1.5 },
-  { id: 'm_exemplo', companyId: 'mock_co', name: 'Material Exemplo (Prompt)', unit: 'un', price: 45.00, consumption: 1.3 }, 
+  { id: 'm1', companyId: 'mock_co', name: 'Placa Drywall ST 1.20x2.40', category: 'Gesso', unit: 'un', costPrice: 22.90, salesPrice: 32.90, consumption: 0.35 },
+  { id: 'm2', companyId: 'mock_co', name: 'Massa Corrida PVA (Lata 18L)', category: 'Pintura', unit: 'lata', costPrice: 45.00, salesPrice: 65.00, consumption: 0.08 },
+  { id: 'm3', companyId: 'mock_co', name: 'Tinta Acrílica Premium', category: 'Pintura', unit: 'L', costPrice: 35.00, salesPrice: 45.00, consumption: 0.1 },
+  { id: 'm4', companyId: 'mock_co', name: 'Cimento CP-II 50kg', category: 'Alvenaria', unit: 'sc', costPrice: 28.00, salesPrice: 38.00, consumption: 0.2 },
+  { id: 'm5', companyId: 'mock_co', name: 'Tijolo Baiano 6 furos', category: 'Alvenaria', unit: 'mil', costPrice: 650.00, salesPrice: 850.00, consumption: 0.025 },
+  { id: 'm6', companyId: 'mock_co', name: 'Porcelanato 60x60', category: 'Acabamento', unit: 'm²', costPrice: 60.00, salesPrice: 89.90, consumption: 1.1 },
+  { id: 'm7', companyId: 'mock_co', name: 'Fio Flexível 2.5mm', category: 'Elétrica', unit: 'm', costPrice: 1.50, salesPrice: 2.50, consumption: 1.5 },
+  { id: 'm_exemplo', companyId: 'mock_co', name: 'Material Exemplo (Prompt)', category: 'Geral', unit: 'un', costPrice: 30.00, salesPrice: 45.00, consumption: 1.3 }, 
 ];
 
 export const MockAuth = {

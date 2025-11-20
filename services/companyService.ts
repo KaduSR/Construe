@@ -8,6 +8,7 @@ export const CompanyService = {
         name: data.name,
         cnpj: data.cnpj,
         company_type: data.type,
+        niche: data.niche,
         email: data.email,
         phone: data.phone,
         address: data.address,
@@ -38,6 +39,7 @@ export const CompanyService = {
         name: data.name,
         cnpj: data.cnpj,
         company_type: data.type,
+        niche: data.niche,
         email: data.email,
         phone: data.phone,
         address: data.address

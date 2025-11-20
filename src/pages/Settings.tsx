@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Company, PlanType } from '../types';
+import { Company, PlanType, CompanyNiche } from '../types';
 import { AppService } from '../services/appService';
 import { CheckCircle, Zap, Shield, Edit2, Save, X, Upload, Building } from 'lucide-react';
 
@@ -17,6 +18,7 @@ export const Settings: React.FC<SettingsProps> = ({ company, onUpdate }) => {
   const [editPhone, setEditPhone] = useState(company.phone || '');
   const [editAddress, setEditAddress] = useState(company.address || '');
   const [editType, setEditType] = useState(company.type);
+  const [editNiche, setEditNiche] = useState<CompanyNiche>(company.niche || 'Geral');
   const [editLogo, setEditLogo] = useState<File | null>(null);
 
   const handleUpgrade = async () => {
@@ -43,7 +45,8 @@ export const Settings: React.FC<SettingsProps> = ({ company, onUpdate }) => {
           name: editName,
           phone: editPhone,
           address: editAddress,
-          type: editType
+          type: editType,
+          niche: editNiche
         },
         editLogo
       );
@@ -64,6 +67,7 @@ export const Settings: React.FC<SettingsProps> = ({ company, onUpdate }) => {
       setEditPhone(company.phone || '');
       setEditAddress(company.address || '');
       setEditType(company.type);
+      setEditNiche(company.niche || 'Geral');
       setEditLogo(null);
     }
     setIsEditing(!isEditing);
@@ -105,9 +109,12 @@ export const Settings: React.FC<SettingsProps> = ({ company, onUpdate }) => {
                 <p className="text-sm text-gray-600"><strong className="text-slate-900">Telefone:</strong> {company.phone || 'Não informado'}</p>
               </div>
               
-              <div className="pt-3">
+              <div className="pt-3 flex gap-2">
                  <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold uppercase border border-slate-200">
                    {company.type}
+                 </span>
+                 <span className="px-3 py-1 bg-yellow-50 text-yellow-700 rounded-full text-xs font-bold uppercase border border-yellow-100">
+                   {company.niche || 'Geral'}
                  </span>
               </div>
             </div>
@@ -170,13 +177,28 @@ export const Settings: React.FC<SettingsProps> = ({ company, onUpdate }) => {
                       </select>
                     </div>
                     <div>
-                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefone</label>
-                       <input 
-                         type="text"
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nicho (Calculadoras)</label>
+                       <select 
                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-400 outline-none"
-                         value={editPhone} onChange={e => setEditPhone(e.target.value)}
-                       />
+                         value={editNiche} onChange={e => setEditNiche(e.target.value as CompanyNiche)}
+                       >
+                          <option value="Geral">Geral</option>
+                          <option value="Gesso e Drywall">Gesso e Drywall</option>
+                          <option value="Alvenaria">Alvenaria</option>
+                          <option value="Pintura">Pintura</option>
+                          <option value="Elétrica">Elétrica</option>
+                          <option value="Hidráulica">Hidráulica</option>
+                      </select>
                     </div>
+                 </div>
+
+                 <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefone</label>
+                    <input 
+                      type="text"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-400 outline-none"
+                      value={editPhone} onChange={e => setEditPhone(e.target.value)}
+                    />
                  </div>
 
                  <div>

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, FilePlus, History, Settings, LogOut, Shield, Zap, Package, PieChart, Calculator } from 'lucide-react';
+import { LayoutDashboard, FilePlus, History, Settings, LogOut, Shield, Zap, Package, PieChart } from 'lucide-react';
 import { User, Company, PlanType } from '../types';
 
 interface LayoutProps {
@@ -16,7 +16,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, company, activeP
   const menuItems = [
     { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard },
     { id: 'create-budget', label: 'Novo Orçamento', icon: FilePlus },
-    { id: 'calculators', label: 'Calculadoras', icon: Calculator },
     { id: 'materials', label: 'Materiais', icon: Package },
     { id: 'financial', label: 'Financeiro', icon: PieChart },
     { id: 'history', label: 'Histórico', icon: History },

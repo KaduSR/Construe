@@ -1,6 +1,7 @@
+
 import { supabase } from './supabaseClient';
 import { CompanyService } from './companyService';
-import { PlanType } from '../types';
+import { PlanType, CreateMaterialDTO } from '../types';
 
 const getErrorMessage = (error) => {
   if (!error) return 'An unexpected error occurred';
@@ -76,34 +77,11 @@ export const AppService = {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session?.user) return { user: null, company: null };
 
-    // 1. Check for Pending Registration (Recover from Email Confirmation)
-    const pendingReg = localStorage.getItem('construe_pending_reg');
-    if (pendingReg) {
-      try {
-        console.log("Finalizing pending company registration...");
-        const companyData = JSON.parse(pendingReg);
-        
-        // Create company now that we have a session
-        const newCompany = await CompanyService.createCompany(session.user.id, companyData);
-        
-        if (newCompany && newCompany.id) {
-           await seedDefaultServices(newCompany.id);
-        }
-        
-        // Clean up
-        localStorage.removeItem('construe_pending_reg');
-      } catch (e) {
-        console.error("Failed to finalize pending registration:", e);
-        // Remove to prevent infinite loop if error is permanent (e.g. dup cnpj)
-        localStorage.removeItem('construe_pending_reg');
-      }
-    }
-
-    // 2. Fetch existing company link
     const { data: adminLink } = await supabase
       .from('company_admins')
       .select('company_id, role')
       .eq('user_id', session.user.id)
+      .limit(1) 
       .maybeSingle();
 
     let company = null;
@@ -121,6 +99,7 @@ export const AppService = {
           name: companyData.name,
           cnpj: companyData.cnpj,
           type: companyData.company_type,
+          niche: companyData.niche || 'Geral',
           email: companyData.email,
           phone: companyData.phone,
           address: companyData.address,
@@ -141,6 +120,7 @@ export const AppService = {
   },
 
   registerCompany: async (companyData, userData) => {
+    
     let logoPath = null;
     try {
       logoPath = await uploadCompanyLogo(companyData.logoFile || null);
@@ -148,7 +128,6 @@ export const AppService = {
       console.warn("Logo upload falhou, continuando sem logo:", e);
     }
 
-    // Prepare full address early
     const fullAddress = [
       companyData.street,
       companyData.neighborhood,
@@ -162,18 +141,23 @@ export const AppService = {
       options: { data: { name: userData.name } }
     });
 
-    if (authError) throw new Error(getErrorMessage(authError));
+    if (authError) {
+      const errorMsg = authError.message?.toLowerCase() || '';
+      if (errorMsg.includes('already registered') || errorMsg.includes('already exists')) {
+        throw new Error("Este e-mail já está cadastrado. Por favor, faça login com sua conta existente.");
+      }
+      throw new Error(getErrorMessage(authError));
+    }
     
     const user = authData.user;
     if (!user) throw new Error("Erro ao criar usuário: Sem retorno de ID.");
 
-    // If no session, it means email confirmation is required.
-    // Save data to localStorage so we can finish creation after they login.
     if (!authData.session) {
       const pendingData = {
         name: companyData.name,
         cnpj: companyData.cnpj,
         type: companyData.type,
+        niche: companyData.niche,
         email: companyData.email,
         phone: companyData.phone,
         address: fullAddress,
@@ -184,11 +168,11 @@ export const AppService = {
       throw new Error("Conta criada! Verifique seu e-mail para confirmar antes de continuar.");
     }
 
-    // If we have session immediately (Auto Confirm ON), create directly
     const newCompany = await CompanyService.createCompany(user.id, {
       name: companyData.name,
       cnpj: companyData.cnpj,
       type: companyData.type,
+      niche: companyData.niche,
       email: companyData.email,
       phone: companyData.phone,
       address: fullAddress,
@@ -198,6 +182,24 @@ export const AppService = {
     if (newCompany && newCompany.id) {
         await seedDefaultServices(newCompany.id);
     }
+  },
+
+  updateCompanySettings: async (companyId, data, logoFile) => {
+    let updateData = { ...data };
+
+    if (logoFile) {
+      try {
+        const logoPath = await uploadCompanyLogo(logoFile);
+        if (logoPath) {
+          updateData.logo_path = logoPath;
+        }
+      } catch (e) {
+        console.warn("Falha ao atualizar logo:", e);
+        throw new Error("Erro ao fazer upload da imagem.");
+      }
+    }
+
+    await CompanyService.updateCompany(companyId, updateData);
   },
 
   getServices: async (companyId) => {
@@ -284,17 +286,45 @@ export const AppService = {
     }
   },
 
+  // --- MATERIAIS ---
+
   getMaterials: async (companyId) => {
-     const { data, error } = await supabase.from('materials').select('*').eq('company_id', companyId);
-     if(error) throw new Error(getErrorMessage(error));
-     return (data || []).map((m) => ({
-       id: m.id,
-       companyId: m.company_id,
-       name: m.name,
-       unit: m.unit,
-       price: Number(m.price),
-       consumption: Number(m.consumption)
-     }));
+    const { data, error } = await supabase
+      .from('materials')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('name');
+
+    if (error) throw new Error(getErrorMessage(error));
+
+    return (data || []).map((m) => ({
+      id: m.id,
+      companyId: m.company_id,
+      name: m.name,
+      category: m.category,
+      unit: m.unit,
+      costPrice: Number(m.cost_price),
+      salesPrice: Number(m.sales_price),
+      consumption: Number(m.consumption || 0)
+    }));
+  },
+
+  createMaterial: async (companyId, material: CreateMaterialDTO) => {
+    const { error } = await supabase.from('materials').insert({
+      company_id: companyId,
+      name: material.name,
+      category: material.category,
+      unit: material.unit,
+      cost_price: material.costPrice,
+      sales_price: material.salesPrice
+    });
+
+    if (error) throw new Error(getErrorMessage(error));
+  },
+
+  deleteMaterial: async (id) => {
+    const { error } = await supabase.from('materials').delete().eq('id', id);
+    if (error) throw new Error(getErrorMessage(error));
   },
 
   upgradePlan: async (companyId) => {
